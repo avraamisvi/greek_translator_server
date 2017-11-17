@@ -43,9 +43,11 @@ var appRouter = function(app) {
             // chapter_number = greekDB.params.chapter;
             
             let sql = "select * from books";
-    
+            
+            // console.log("error");
+
             greekDB.all(sql, (err, rows) => {
-    
+                // console.log(rows);
                 if(!err) {
                     res.send({
                         data: rows
@@ -55,9 +57,9 @@ var appRouter = function(app) {
                         err: err
                     });
                 }
-            });
-                
-    });    
+            }); 
+    });
+        
 }
     
 module.exports = appRouter;
