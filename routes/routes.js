@@ -72,13 +72,17 @@ function associateGrammar(grammars, translaId) {
     
     return new Promise((resolve1, reject1) => {
 
+        grammars = grammars.filter( (val) => {
+            return val.name != null && val.name.length > 0;
+        });
+
         let definitions = [];
 
         let sql = "select * from grammar where definition in (";
 
         grammars.forEach( (val, index) => {
-            sql += val.name;
-            if(grammars.length > 1 && index < grammars.length) {
+            sql += "'" + val.name + "'";
+            if(grammars.length > 1 && index < grammars.length-1) {
                 sql += ",";
             }
         });
@@ -89,57 +93,38 @@ function associateGrammar(grammars, translaId) {
             
             definitions.push(row);
             
-        }, () => {
-        
+        }, (err) => {
+            
+            console.error(err);
+
             let sql = "select * from grammar_entry where translation_id = ?";
             
             let promises = [];
 
-            translationDB.all(sql, translaId, (err, rows) => {
-
-                let grammarsIds = [];
-
-                if(rows.length > 0) {
-                    rows.forEach( (val) => {
-
-                        let def = definitions.find((ele) => {
-                            return ele.grammar_id == val.id;
-                        });
-
-                        if(!def) {
-                            promises.push(new Promise((resolve, reject) => {
-                                translationDB.run("INSERT INTO grammar(definition) VALUES(?)", val.definition, function(err) {resolve();});
-                            }));
-                        }
-
-                    });
-                } else {
-                    grammars.forEach( (val, index) => {
-                        promises.push(new Promise((resolve, reject) => {
-                            
-                            translationDB.get("SELECT * FROM grammar WHERE definition = ?", val.name, 
-                            function(err, row) {
-                                if(row) {
-                                    createGrammarEntry(row.id, translaId).then(()=>{
-                                        resolve();
-                                    });
-                                } else {
-                                    translationDB.run("INSERT INTO grammar(definition) VALUES(?)", val.name, function(err) {
-                                        createGrammarEntry(this.lastID, translaId).then(()=>{
-                                            resolve();
-                                        });
-                                    });
-                                }
+            grammars.forEach( (val, index) => {
+                promises.push(new Promise((resolve, reject) => {
+                    
+                    translationDB.get("SELECT * FROM grammar WHERE definition = ?", val.name, 
+                    function(err, row) {
+                        if(row) {
+                            createGrammarEntry(row.id, translaId).then(()=>{
+                                resolve();
                             });
+                        } else {
+                            translationDB.run("INSERT INTO grammar(definition) VALUES(?)", val.name, function(err) {
+                                createGrammarEntry(this.lastID, translaId).then(()=>{
+                                    resolve();
+                                });
+                            });
+                        }
+                    });
 
-                        }));//end promi array
-                    });                    
-                }
+                }));//end promi array
+            }); //end for each
 
-                Promise.all(promises).then((res) => {
-                    resolve1();
-                });
-            });         
+            Promise.all(promises).then((res) => {
+                resolve1();
+            });
 
         });
     });
@@ -302,8 +287,8 @@ var appRouter = function(app) {
                     req.body.id
                 ], function(err) {
     
-                    translationDB.run(`DELETE FROM grammar_entry WHERE translation_id = ${req.body.id}`, 
-                    req.body.word, function(err) {
+                    translationDB.run(`DELETE FROM grammar_entry WHERE translation_id = ${req.body.id}`,
+                    function(err) {
                         
                         if(req.body.grammarTags) {
                             
